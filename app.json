@@ -1,0 +1,50 @@
+{
+  "expo": {
+    "name": "ToyMotion",
+    "slug": "toymotion-app",
+    "version": "1.0.0",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "scheme": "toymotion",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.toymotion.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "ToyMotion needs camera access to capture stop-motion frames",
+        "NSPhotoLibraryUsageDescription": "ToyMotion needs photo library access to save your animations",
+        "NSPhotoLibraryAddUsageDescription": "ToyMotion needs to save animations to your photo library"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FF6B6B"
+      },
+      "package": "com.toymotion.app",
+      "permissions": ["CAMERA", "WRITE_EXTERNAL_STORAGE", "READ_EXTERNAL_STORAGE"]
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "ToyMotion needs camera access to capture stop-motion frames"
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "ToyMotion needs photo library access to save your animations",
+          "savePhotosPermission": "ToyMotion needs to save animations to your photo library"
+        }
+      ]
+    ]
+  }
+}
