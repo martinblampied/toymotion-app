@@ -19,7 +19,9 @@
       "infoPlist": {
         "NSCameraUsageDescription": "ToyMotion needs camera access to capture stop-motion frames",
         "NSPhotoLibraryUsageDescription": "ToyMotion needs photo library access to save your animations",
-        "NSPhotoLibraryAddUsageDescription": "ToyMotion needs to save animations to your photo library"
+        "NSPhotoLibraryAddUsageDescription": "ToyMotion needs to save animations to your photo library",
+        "NSSpeechRecognitionUsageDescription": "ToyMotion uses speech recognition for hands-free voice commands",
+        "NSMicrophoneUsageDescription": "ToyMotion needs microphone access for voice commands"
       }
     },
     "android": {
@@ -28,7 +30,12 @@
         "backgroundColor": "#FF6B6B"
       },
       "package": "com.toymotion.app",
-      "permissions": ["CAMERA", "WRITE_EXTERNAL_STORAGE", "READ_EXTERNAL_STORAGE"]
+      "permissions": [
+        "CAMERA",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_EXTERNAL_STORAGE",
+        "RECORD_AUDIO"
+      ]
     },
     "plugins": [
       "expo-router",
@@ -44,7 +51,9 @@
           "photosPermission": "ToyMotion needs photo library access to save your animations",
           "savePhotosPermission": "ToyMotion needs to save animations to your photo library"
         }
-      ]
+      ],
+      "expo-speech-recognition",
+      "expo-font"
     ]
   }
 }

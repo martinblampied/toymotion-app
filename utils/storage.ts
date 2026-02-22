@@ -1,4 +1,4 @@
-import * as FileSystem from 'expo-file-system';
+import { File, Directory, Paths } from 'expo-file-system/next';
 import { v4Style } from './helpers';
 
 export interface ProjectMetadata {
@@ -10,30 +10,29 @@ export interface ProjectMetadata {
   fps: number;
 }
 
-const PROJECTS_DIR = `${FileSystem.documentDirectory}projects/`;
+const PROJECTS_DIR = new Directory(Paths.document, 'projects');
 
 export async function ensureProjectsDir() {
-  const info = await FileSystem.getInfoAsync(PROJECTS_DIR);
-  if (!info.exists) {
-    await FileSystem.makeDirectoryAsync(PROJECTS_DIR, { intermediates: true });
+  if (!PROJECTS_DIR.exists) {
+    PROJECTS_DIR.create();
   }
 }
 
 export async function getProjectDir(projectId: string) {
-  return `${PROJECTS_DIR}${projectId}/`;
+  return new Directory(PROJECTS_DIR, projectId);
 }
 
 export async function getFramesDir(projectId: string) {
-  return `${PROJECTS_DIR}${projectId}/frames/`;
+  return new Directory(PROJECTS_DIR, projectId, 'frames');
 }
 
 export async function createProject(name: string): Promise<ProjectMetadata> {
   await ensureProjectsDir();
   const id = v4Style();
-  const projectDir = `${PROJECTS_DIR}${id}/`;
-  const framesDir = `${projectDir}frames/`;
-
-  await FileSystem.makeDirectoryAsync(framesDir, { intermediates: true });
+  const projectDir = new Directory(PROJECTS_DIR, id);
+  projectDir.create();
+  const framesDir = new Directory(projectDir, 'frames');
+  framesDir.create();
 
   const metadata: ProjectMetadata = {
     id,
@@ -44,18 +43,17 @@ export async function createProject(name: string): Promise<ProjectMetadata> {
     fps: 12,
   };
 
-  await FileSystem.writeAsStringAsync(
-    `${projectDir}metadata.json`,
-    JSON.stringify(metadata)
-  );
+  const metaFile = new File(PROJECTS_DIR, id, 'metadata.json');
+  metaFile.write(JSON.stringify(metadata));
 
   return metadata;
 }
 
 export async function loadProject(projectId: string): Promise<ProjectMetadata | null> {
   try {
-    const metaPath = `${PROJECTS_DIR}${projectId}/metadata.json`;
-    const data = await FileSystem.readAsStringAsync(metaPath);
+    const metaFile = new File(PROJECTS_DIR, projectId, 'metadata.json');
+    if (!metaFile.exists) return null;
+    const data = metaFile.text();
     return JSON.parse(data);
   } catch {
     return null;
@@ -63,18 +61,20 @@ export async function loadProject(projectId: string): Promise<ProjectMetadata | 
 }
 
 export async function saveProjectMetadata(metadata: ProjectMetadata) {
-  const metaPath = `${PROJECTS_DIR}${metadata.id}/metadata.json`;
-  await FileSystem.writeAsStringAsync(metaPath, JSON.stringify(metadata));
+  const metaFile = new File(PROJECTS_DIR, metadata.id, 'metadata.json');
+  metaFile.write(JSON.stringify(metadata));
 }
 
 export async function listProjects(): Promise<ProjectMetadata[]> {
   await ensureProjectsDir();
   try {
-    const dirs = await FileSystem.readDirectoryAsync(PROJECTS_DIR);
+    const entries = PROJECTS_DIR.list();
     const projects: ProjectMetadata[] = [];
-    for (const dir of dirs) {
-      const meta = await loadProject(dir);
-      if (meta) projects.push(meta);
+    for (const entry of entries) {
+      if (entry instanceof Directory) {
+        const meta = await loadProject(entry.name);
+        if (meta) projects.push(meta);
+      }
     }
     return projects.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
   } catch {
@@ -83,30 +83,38 @@ export async function listProjects(): Promise<ProjectMetadata[]> {
 }
 
 export async function deleteProject(projectId: string) {
-  const dir = `${PROJECTS_DIR}${projectId}/`;
-  await FileSystem.deleteAsync(dir, { idempotent: true });
+  const dir = new Directory(PROJECTS_DIR, projectId);
+  if (dir.exists) {
+    dir.delete();
+  }
 }
 
 export function getFramePath(projectId: string, frameNumber: number): string {
   const padded = String(frameNumber).padStart(3, '0');
-  return `${PROJECTS_DIR}${projectId}/frames/frame_${padded}.jpg`;
+  const file = new File(PROJECTS_DIR, projectId, 'frames', `frame_${padded}.jpg`);
+  return file.uri;
 }
 
 export async function addFrame(projectId: string, sourceUri: string, frameNumber: number): Promise<string> {
-  const destPath = getFramePath(projectId, frameNumber);
-  await FileSystem.copyAsync({ from: sourceUri, to: destPath });
-  return destPath;
+  const padded = String(frameNumber).padStart(3, '0');
+  const destFile = new File(PROJECTS_DIR, projectId, 'frames', `frame_${padded}.jpg`);
+  const sourceFile = new File(sourceUri);
+  sourceFile.copy(destFile);
+  return destFile.uri;
 }
 
 export async function deleteLastFrame(projectId: string, frameNumber: number) {
-  const path = getFramePath(projectId, frameNumber);
-  await FileSystem.deleteAsync(path, { idempotent: true });
+  const padded = String(frameNumber).padStart(3, '0');
+  const file = new File(PROJECTS_DIR, projectId, 'frames', `frame_${padded}.jpg`);
+  if (file.exists) {
+    file.delete();
+  }
 }
 
 export async function getFrameUri(projectId: string, frameNumber: number): Promise<string | null> {
-  const path = getFramePath(projectId, frameNumber);
-  const info = await FileSystem.getInfoAsync(path);
-  return info.exists ? path : null;
+  const padded = String(frameNumber).padStart(3, '0');
+  const file = new File(PROJECTS_DIR, projectId, 'frames', `frame_${padded}.jpg`);
+  return file.exists ? file.uri : null;
 }
 
 export async function getAllFrameUris(projectId: string, frameCount: number): Promise<string[]> {

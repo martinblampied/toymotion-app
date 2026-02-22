@@ -8,12 +8,14 @@ import {
   Alert,
   Dimensions,
   ActivityIndicator,
+  Animated,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { COLORS, SIZES } from '../constants/theme';
+import { useVoiceCommands, VoiceCommand } from '../hooks/useVoiceCommands';
 import {
   ProjectMetadata,
   loadProject,
@@ -36,6 +38,7 @@ export default function CameraScreen() {
   const [lastFrameUri, setLastFrameUri] = useState<string | null>(null);
   const [capturing, setCapturing] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
+  const feedbackOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     loadProjectData();
@@ -118,6 +121,29 @@ export default function CameraScreen() {
     router.push({ pathname: '/playback', params: { projectId: project.id } });
   }, [project]);
 
+  const { isListening, isAvailable, lastCommand, toggleListening } = useVoiceCommands({
+    onCapture: handleCapture,
+    onDelete: handleDeleteLast,
+    onPlay: handlePlay,
+  });
+
+  // Animate feedback overlay
+  useEffect(() => {
+    if (lastCommand) {
+      Animated.sequence([
+        Animated.timing(feedbackOpacity, { toValue: 1, duration: 150, useNativeDriver: true }),
+        Animated.delay(800),
+        Animated.timing(feedbackOpacity, { toValue: 0, duration: 250, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [lastCommand]);
+
+  const commandLabels: Record<VoiceCommand, string> = {
+    capture: 'Taking photo...',
+    delete: 'Deleting frame...',
+    play: 'Playing...',
+  };
+
   if (!permission) {
     return (
       <View style={styles.centered}>
@@ -170,11 +196,41 @@ export default function CameraScreen() {
           <Text style={{ color: COLORS.accent }}>Motion</Text>
         </Text>
 
-        <View style={styles.frameCountBadge}>
-          <MaterialIcons name="photo-library" size={16} color={COLORS.white} />
-          <Text style={styles.frameCountText}>Frames: {frameCount}</Text>
+        <View style={styles.topBarRight}>
+          {isAvailable && (
+            <TouchableOpacity
+              style={[styles.micButton, isListening && styles.micButtonActive]}
+              onPress={toggleListening}
+              activeOpacity={0.7}
+            >
+              <MaterialIcons
+                name={isListening ? 'mic' : 'mic-off'}
+                size={22}
+                color={COLORS.white}
+              />
+            </TouchableOpacity>
+          )}
+          <View style={styles.frameCountBadge}>
+            <MaterialIcons name="photo-library" size={16} color={COLORS.white} />
+            <Text style={styles.frameCountText}>Frames: {frameCount}</Text>
+          </View>
         </View>
       </SafeAreaView>
+
+      {/* Listening Indicator */}
+      {isListening && (
+        <View style={styles.listeningPill}>
+          <View style={styles.listeningDot} />
+          <Text style={styles.listeningText}>Listening...</Text>
+        </View>
+      )}
+
+      {/* Voice Command Feedback */}
+      {lastCommand && (
+        <Animated.View style={[styles.feedbackOverlay, { opacity: feedbackOpacity }]}>
+          <Text style={styles.feedbackText}>{commandLabels[lastCommand]}</Text>
+        </Animated.View>
+      )}
 
       {/* Frame Timeline */}
       {frameCount > 0 && project && (
@@ -268,6 +324,22 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
   },
+  topBarRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  micButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  micButtonActive: {
+    backgroundColor: COLORS.accent,
+  },
   frameCountBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -349,5 +421,42 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontWeight: '700',
     fontSize: 16,
+  },
+  listeningPill: {
+    position: 'absolute',
+    top: 110,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 6,
+  },
+  listeningDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: COLORS.accent,
+  },
+  listeningText: {
+    color: COLORS.white,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  feedbackOverlay: {
+    position: 'absolute',
+    top: '45%',
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 20,
+  },
+  feedbackText: {
+    color: COLORS.white,
+    fontSize: 18,
+    fontWeight: '700',
   },
 });
